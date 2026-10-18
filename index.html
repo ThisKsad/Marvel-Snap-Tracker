@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snap Tracker</title>
+  <meta name="theme-color" content="#14111f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%237c3aed'/%3E%3Ctext x='16' y='22' font-family='Segoe UI,Arial' font-size='17' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    try { const t = localStorage.getItem('snap-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">S</span><span>Snap Tracker</span></div>
+    <div class="top-actions">
+      <button class="btn primary" id="addBtn">+ Spiel</button>
+      <button class="icon-btn" id="themeBtn" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten">☾</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Übersicht</button>
+    <button data-tab="games">Spiele</button>
+    <button data-tab="decks">Decks</button>
+    <button data-tab="cards">Karten</button>
+    <button data-tab="opponents">Gegner</button>
+  </nav>
+
+  <section class="filters" id="filters">
+    <label>Zeitraum
+      <select id="fRange">
+        <option value="1">Heute</option>
+        <option value="7">7 Tage</option>
+        <option value="30">30 Tage</option>
+        <option value="0" selected>Alles</option>
+      </select>
+    </label>
+    <label>Modus <select id="fMode"><option value="">Alle</option></select></label>
+    <label>Deck <select id="fDeck"><option value="">Alle</option></select></label>
+  </section>
+
+  <main id="view"><p class="muted center pad">Lade Spiele …</p></main>
+
+  <dialog id="gameDialog">
+    <form method="dialog" id="gameForm">
+      <h2 id="formTitle">Spiel eintragen</h2>
+      <div class="seg" id="resultSeg">
+        <button type="button" data-v="win" class="win">Sieg</button>
+        <button type="button" data-v="loss" class="loss">Niederlage</button>
+        <button type="button" data-v="tie">Unentschieden</button>
+      </div>
+      <label class="field">Cubes
+        <div class="seg small" id="cubeSeg">
+          <button type="button" data-v="1">1</button>
+          <button type="button" data-v="2">2</button>
+          <button type="button" data-v="4">4</button>
+          <button type="button" data-v="8">8</button>
+        </div>
+      </label>
+      <div class="row2">
+        <label class="field">Deck
+          <input id="inDeck" list="deckList" placeholder="z. B. Created Cards" autocomplete="off">
+          <datalist id="deckList"></datalist>
+        </label>
+        <label class="field">Modus
+          <select id="inMode">
+            <option value="Ranked">Ranked</option>
+            <option value="Conquest">Conquest</option>
+            <option value="ChampionArena">Grand Arena</option>
+            <option value="Friendly">Freundschaft</option>
+            <option value="Event">Event</option>
+          </select>
+        </label>
+      </div>
+      <div class="row2">
+        <label class="field">Gegner-Deck
+          <input id="inArch" list="archList" placeholder="z. B. Zombie" autocomplete="off">
+          <datalist id="archList"></datalist>
+        </label>
+        <label class="field">Gegnername <input id="inOpp" placeholder="optional" autocomplete="off"></label>
+      </div>
+      <div class="row2">
+        <label class="field">Retreat
+          <select id="inRetreat">
+            <option value="">Niemand</option>
+            <option value="me">Ich</option>
+            <option value="opp">Gegner</option>
+          </select>
+        </label>
+        <label class="field">Zeitpunkt <input id="inDate" type="datetime-local"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="inSnap"> Ich habe gesnappt</label>
+      <label class="field">Notiz <textarea id="inNotes" rows="2" placeholder="optional"></textarea></label>
+      <p class="form-error" id="formError"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn danger" id="deleteBtn" hidden>Löschen</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelBtn">Abbrechen</button>
+        <button type="submit" class="btn primary" id="saveBtn">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <p id="confirmText">Wirklich löschen?</p>
+      <div class="dialog-actions">
+        <span class="spacer"></span>
+        <button value="no" class="btn">Abbrechen</button>
+        <button value="yes" class="btn danger">Löschen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="cards.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
