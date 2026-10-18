@@ -13,6 +13,22 @@ foreach ($f in 'SnapTracker.ps1', 'SnapTrackerTray.ps1', 'Start.vbs') {
 }
 Get-ChildItem $target | Unblock-File
 
+# PIN abfragen und verschlüsselt speichern (nur dieser Windows-Benutzer kann ihn lesen)
+Write-Host ''
+Write-Host 'Gib den PIN ein, den du auf der Tracker-Website festgelegt hast.'
+Write-Host '(Falls noch keiner festgelegt ist: zuerst die Website öffnen und dort einen PIN festlegen.)'
+do {
+    $p1 = Read-Host 'PIN' -AsSecureString
+    $p2 = Read-Host 'PIN wiederholen' -AsSecureString
+    $b1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1))
+    $b2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2))
+    $same = ($b1 -eq $b2) -and ($b1.Length -ge 4)
+    if (-not $same) { Write-Host 'Die Eingaben stimmen nicht überein oder sind kürzer als 4 Zeichen. Bitte nochmal.' -ForegroundColor Yellow }
+} until ($same)
+$dataDir = Join-Path $env:LOCALAPPDATA 'SnapTracker'
+$p1 | ConvertFrom-SecureString | Set-Content (Join-Path $dataDir 'pin.dat')
+$b1 = $null; $b2 = $null
+
 $lnkPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'Marvel Snap Tracker.lnk'
 $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut($lnkPath)
 $lnk.TargetPath = 'wscript.exe'

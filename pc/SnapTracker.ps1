@@ -27,6 +27,19 @@ if (-not $DataDir) {
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 $SentFile = Join-Path $DataDir 'gesendet.txt'
 $LogFile  = Join-Path $DataDir 'log.txt'
+$PinFile  = Join-Path $DataDir 'pin.dat'
+
+# PIN steht verschlüsselt (nur für diesen Windows-Benutzer lesbar) in pin.dat, angelegt von install.ps1
+function Get-TrackerPin {
+    if ($env:SNAPTRACKER_PIN) { return $env:SNAPTRACKER_PIN }   # nur zum Testen
+    if (-not (Test-Path $PinFile)) { return $null }
+    try {
+        $sec = Get-Content $PinFile -Raw | ConvertTo-SecureString
+        $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+        try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+    } catch { return $null }
+}
 
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 
@@ -49,6 +62,10 @@ if (Test-Path $SentFile) {
 }
 $script:LastWrite = [datetime]::MinValue
 $script:Status = 'Wartet auf die erste Partie'
+$script:Pin = Get-TrackerPin
+$script:PinProblem = $false          # true = falscher PIN, nicht weiter senden (sonst sperrt die Datenbank)
+$script:PauseUntil = [datetime]::MinValue
+$script:Alert = $null                # Warnung, die das Symbol einmal als Meldung zeigt
 
 function Read-SharedText([string]$path) {
     # Datei lesen, auch wenn das Spiel sie gerade offen hat
@@ -69,6 +86,12 @@ function Format-Result($r) {
 
 # Prüft die Spieldatei einmal. Gibt eine Meldung zurück, wenn ein neues Spiel gesendet wurde.
 function Invoke-SnapCheck {
+    if ($script:PinProblem) { return $null }
+    if (-not $script:Pin) {
+        $script:Status = 'Kein PIN hinterlegt. Bitte Installieren.bat erneut ausführen.'
+        return $null
+    }
+    if ((Get-Date) -lt $script:PauseUntil) { return $null }
     if (-not (Test-Path $GameStatePath)) { $script:Status = 'Spieldatei nicht gefunden'; return $null }
     $info = Get-Item $GameStatePath
     if ($info.LastWriteTimeUtc -eq $script:LastWrite) { return $null }
@@ -90,7 +113,8 @@ function Invoke-SnapCheck {
     if (-not $trim.EndsWith('}')) { return $null }
     $trim = $trim.TrimStart([char]0xFEFF)
 
-    $body = [Text.Encoding]::UTF8.GetBytes('{"payload":' + $trim + '}')
+    $pinJson = ConvertTo-Json ([string]$script:Pin)
+    $body = [Text.Encoding]::UTF8.GetBytes('{"pin":' + $pinJson + ',"payload":' + $trim + '}')
     $headers = @{ apikey = $SupabaseKey; Authorization = "Bearer $SupabaseKey" }
     try {
         $r = Invoke-RestMethod -Method Post -Uri "$SupabaseUrl/rest/v1/rpc/snap_ingest" `
@@ -99,6 +123,20 @@ function Invoke-SnapCheck {
         $script:Status = 'Senden fehlgeschlagen, neuer Versuch folgt'
         Write-Log "Fehler beim Senden von $gameId : $($_.Exception.Message)"
         return $null   # LastWrite nicht setzen -> nächster Durchlauf versucht es erneut
+    }
+
+    if ($r.status -eq 'wrong_pin' -or $r.status -eq 'no_pin') {
+        $script:PinProblem = $true
+        $script:Status = 'PIN falsch. Bitte Installieren.bat erneut ausführen.'
+        $script:Alert = 'Der gespeicherte PIN stimmt nicht. Spiele werden nicht gesendet. Bitte Installieren.bat erneut ausführen und den PIN der Website eingeben.'
+        Write-Log "PIN abgelehnt ($($r.status)), Senden gestoppt"
+        return $null
+    }
+    if ($r.status -eq 'locked') {
+        $script:PauseUntil = (Get-Date).AddMinutes(11)
+        $script:Status = 'Datenbank wegen falscher PIN-Eingaben kurz gesperrt, neuer Versuch in 11 Minuten'
+        Write-Log 'Datenbank gesperrt (zu viele falsche PINs), Pause 11 Minuten'
+        return $null
     }
 
     $script:LastWrite = $info.LastWriteTimeUtc

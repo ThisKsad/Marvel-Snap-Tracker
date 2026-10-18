@@ -18,6 +18,7 @@
     <div class="brand"><span class="logo">S</span><span>Snap Tracker</span></div>
     <div class="top-actions">
       <button class="btn primary" id="addBtn">+ Spiel</button>
+      <button class="icon-btn" id="lockBtn" title="Sperren" aria-label="Tracker sperren">🔒</button>
       <button class="icon-btn" id="themeBtn" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten">☾</button>
     </div>
   </header>
@@ -112,6 +113,37 @@
         <span class="spacer"></span>
         <button value="no" class="btn">Abbrechen</button>
         <button value="yes" class="btn danger">Löschen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="foot"><button class="linkbtn" id="changePinBtn" type="button">PIN ändern</button></footer>
+
+  <section class="lock" id="lock" hidden>
+    <form class="lock-card" id="lockForm" autocomplete="on">
+      <div class="brand"><span class="logo">S</span><span>Snap Tracker</span></div>
+      <h2 id="lockTitle">Tracker entsperren</h2>
+      <p class="hint" id="lockHint"></p>
+      <input type="text" name="username" value="Snap Tracker" autocomplete="username" hidden>
+      <label class="field">PIN <input id="pin1" type="password" inputmode="numeric" autocomplete="current-password" required minlength="4"></label>
+      <label class="field" id="pin2Row" hidden>PIN wiederholen <input id="pin2" type="password" inputmode="numeric" autocomplete="new-password" minlength="4"></label>
+      <label class="check"><input type="checkbox" id="pinKeep" checked> Auf diesem Gerät angemeldet bleiben</label>
+      <p class="form-error" id="lockError"></p>
+      <button class="btn primary wide" type="submit">Weiter</button>
+    </form>
+  </section>
+
+  <dialog id="pinDialog">
+    <form id="pinForm">
+      <h2>PIN ändern</h2>
+      <label class="field">Aktueller PIN <input id="oldPin" type="password" inputmode="numeric" autocomplete="current-password" required></label>
+      <label class="field">Neuer PIN <input id="newPin1" type="password" inputmode="numeric" autocomplete="new-password" required minlength="4"></label>
+      <label class="field">Neuer PIN wiederholen <input id="newPin2" type="password" inputmode="numeric" autocomplete="new-password" required minlength="4"></label>
+      <p class="hint">Danach musst du das PC-Programm einmal neu installieren und dort den neuen PIN eingeben.</p>
+      <p class="form-error" id="pinError"></p>
+      <div class="dialog-actions"><span class="spacer"></span>
+        <button type="button" class="btn" id="pinCancel">Abbrechen</button>
+        <button type="submit" class="btn primary">Ändern</button>
       </div>
     </form>
   </dialog>

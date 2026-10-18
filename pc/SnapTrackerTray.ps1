@@ -42,6 +42,7 @@ function Invoke-Tick {
     try {
         $msg = Invoke-SnapCheck
         if ($msg) { $icon.ShowBalloonTip(4000, 'Marvel Snap Tracker', "Gespeichert: $msg", 'Info') }
+        if ($script:Alert) { $icon.ShowBalloonTip(8000, 'Marvel Snap Tracker', $script:Alert, 'Warning'); $script:Alert = $null }
     } catch {
         Write-Log "Unerwarteter Fehler: $($_.Exception.Message)"
     }

@@ -1,7 +1,6 @@
 // Marvel Snap Tracker – Website
 const SUPABASE_URL = 'https://dwsieddjvldzurosjdpp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_SREC_XokfKppXeP7rTgnMQ_-2ZyEXMp';
-const TABLE = 'snap_matches';
 
 const state = {
   matches: [],
@@ -29,26 +28,101 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-async function api(path, opts = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...opts,
-    headers: {
-      apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json', Prefer: 'return=representation', ...(opts.headers || {}),
-    },
+async function rpc(name, args = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  return res.status === 204 ? null : res.json();
+  return res.json();
+}
+
+// ---------------------------------------------------------------- PIN
+let PIN = null;
+try { PIN = localStorage.getItem('snap-pin') || sessionStorage.getItem('snap-pin'); } catch (_) {}
+
+const PIN_MESSAGES = {
+  wrong_pin: 'PIN falsch. Bitte nochmal versuchen.',
+  locked: 'Zu viele falsche Versuche. Bitte in 10 Minuten erneut versuchen.',
+  too_short: 'Der PIN muss mindestens 4 Zeichen haben.',
+  exists: 'Es ist schon ein PIN festgelegt. Bitte damit entsperren.',
+};
+
+// Prüft die Antwort einer PIN-geschützten Funktion. Bei falschem PIN geht es zurück zum Sperrbildschirm.
+function checkStatus(r) {
+  if (r && r.status === 'ok') return true;
+  if (r && (r.status === 'wrong_pin' || r.status === 'no_pin' || r.status === 'locked')) {
+    forgetPin();
+    showLock(r.status === 'no_pin' ? 'setup' : 'unlock', PIN_MESSAGES[r.status] || '');
+    return false;
+  }
+  throw new Error((r && r.status) || 'unbekannte Antwort');
+}
+
+function rememberPin(pin, keep) {
+  PIN = pin;
+  try {
+    localStorage.removeItem('snap-pin'); sessionStorage.removeItem('snap-pin');
+    (keep ? localStorage : sessionStorage).setItem('snap-pin', pin);
+  } catch (_) {}
+}
+function forgetPin() {
+  PIN = null;
+  try { localStorage.removeItem('snap-pin'); sessionStorage.removeItem('snap-pin'); } catch (_) {}
+}
+
+function showLock(mode, msg = '') {
+  $('#lock').hidden = false;
+  document.body.classList.add('locked');
+  $('#lockTitle').textContent = mode === 'setup' ? 'PIN festlegen' : 'Tracker entsperren';
+  $('#lockHint').textContent = mode === 'setup'
+    ? 'Lege einen PIN fest, mit dem du den Tracker öffnest. Mindestens 4 Zeichen, besser 6 oder mehr. Den gleichen PIN gibst du bei der Installation des PC-Programms ein.'
+    : 'Gib deinen PIN ein.';
+  $('#pin2Row').hidden = mode !== 'setup';
+  $('#lockForm').dataset.mode = mode;
+  $('#lockError').textContent = msg;
+  $('#pin1').value = ''; $('#pin2').value = '';
+  setTimeout(() => $('#pin1').focus(), 50);
+}
+function hideLock() { $('#lock').hidden = true; document.body.classList.remove('locked'); }
+
+async function submitLock(ev) {
+  ev.preventDefault();
+  const mode = $('#lockForm').dataset.mode, p1 = $('#pin1').value, keep = $('#pinKeep').checked;
+  $('#lockError').textContent = '';
+  try {
+    if (mode === 'setup') {
+      if (p1 !== $('#pin2').value) { $('#lockError').textContent = 'Die beiden Eingaben stimmen nicht überein.'; return; }
+      const r = await rpc('snap_setup_pin', { new_pin: p1 });
+      if (r.status !== 'ok') { $('#lockError').textContent = PIN_MESSAGES[r.status] || r.status; if (r.status === 'exists') showLock('unlock', PIN_MESSAGES.exists); return; }
+    }
+    const r = await rpc('snap_list', { pin: p1 });
+    if (r.status !== 'ok') { $('#lockError').textContent = PIN_MESSAGES[r.status] || r.status; return; }
+    rememberPin(p1, keep);
+    hideLock();
+    applyRows(r.rows);
+  } catch (e) { $('#lockError').textContent = 'Keine Verbindung zur Datenbank: ' + e.message; }
+}
+
+function applyRows(rows, silent) {
+  const before = state.matches.length;
+  state.matches = rows;
+  fillFilterOptions();
+  render();
+  if (silent && rows.length > before && before) toast('Neues Spiel geladen');
 }
 
 async function load(silent) {
+  if (!PIN) {
+    if (silent) return;
+    try { showLock((await rpc('snap_has_pin')) ? 'unlock' : 'setup'); }
+    catch (e) { showLock('unlock', 'Keine Verbindung zur Datenbank: ' + e.message); }
+    return;
+  }
   try {
-    const rows = await api(`${TABLE}?select=*&order=played_at.desc&limit=5000`);
-    const before = state.matches.length;
-    state.matches = rows;
-    fillFilterOptions();
-    render();
-    if (silent && rows.length > before && before) toast('Neues Spiel geladen');
+    const r = await rpc('snap_list', { pin: PIN });
+    if (checkStatus(r)) applyRows(r.rows, silent);
   } catch (e) {
     $('#view').innerHTML = `<div class="panel empty">Die Spiele konnten nicht geladen werden.<br><small>${esc(e.message)}</small></div>`;
   }
@@ -383,13 +457,9 @@ async function saveForm(ev) {
   if (state.editing && !state.editing.opp_archetype && row.opp_archetype === detectArchetype(state.editing.opponent_cards)) row.opp_archetype = null;
   $('#saveBtn').disabled = true;
   try {
-    if (state.editing) {
-      await api(`${TABLE}?id=eq.${state.editing.id}`, { method: 'PATCH', body: JSON.stringify(row) });
-      toast('Gespeichert');
-    } else {
-      await api(TABLE, { method: 'POST', body: JSON.stringify({ ...row, source: 'manual' }) });
-      toast('Spiel eingetragen');
-    }
+    const r = await rpc('snap_save', { pin: PIN, rec: state.editing ? { ...row, id: state.editing.id } : row });
+    if (!checkStatus(r)) { $('#gameDialog').close(); return; }
+    toast(state.editing ? 'Gespeichert' : 'Spiel eingetragen');
     $('#gameDialog').close();
     await load();
   } catch (e) {
@@ -404,8 +474,10 @@ async function deleteGame() {
   $('#confirmDialog').onclose = async () => {
     if ($('#confirmDialog').returnValue !== 'yes') return;
     try {
-      await api(`${TABLE}?id=eq.${m.id}`, { method: 'DELETE' });
-      $('#gameDialog').close(); toast('Gelöscht'); await load();
+      const r = await rpc('snap_delete', { pin: PIN, match_id: m.id });
+      $('#gameDialog').close();
+      if (!checkStatus(r)) return;
+      toast('Gelöscht'); await load();
     } catch (e) { $('#formError').textContent = 'Löschen fehlgeschlagen: ' + e.message; }
   };
 }
@@ -455,6 +527,24 @@ $('#themeBtn').addEventListener('click', () => {
   const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   root.dataset.theme = dark ? 'light' : 'dark';
   try { localStorage.setItem('snap-theme', root.dataset.theme); } catch (_) {}
+});
+
+$('#lockForm').addEventListener('submit', submitLock);
+$('#lockBtn').addEventListener('click', () => { forgetPin(); state.matches = []; $('#view').innerHTML = ''; showLock('unlock'); });
+$('#changePinBtn').addEventListener('click', () => { $('#pinError').textContent = ''; $('#pinForm').reset(); $('#pinDialog').showModal(); });
+$('#pinCancel').addEventListener('click', () => $('#pinDialog').close());
+$('#pinForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const n1 = $('#newPin1').value;
+  if (n1 !== $('#newPin2').value) { $('#pinError').textContent = 'Die beiden neuen PINs stimmen nicht überein.'; return; }
+  try {
+    const r = await rpc('snap_change_pin', { pin: $('#oldPin').value, new_pin: n1 });
+    if (r.status !== 'ok') { $('#pinError').textContent = PIN_MESSAGES[r.status] || r.status; return; }
+    let keep = false; try { keep = !!localStorage.getItem('snap-pin'); } catch (_) {}
+    rememberPin(n1, keep);
+    $('#pinDialog').close();
+    toast('PIN geändert. Bitte das PC-Programm neu installieren, damit es den neuen PIN kennt.');
+  } catch (e) { $('#pinError').textContent = 'Keine Verbindung zur Datenbank: ' + e.message; }
 });
 
 try { const t = localStorage.getItem('snap-tab'); if (t) state.tab = t; } catch (_) {}
