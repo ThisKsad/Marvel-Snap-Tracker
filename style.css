@@ -115,7 +115,7 @@ td.name { white-space: normal; font-weight: 500; }
 .loc.opp { border-color: var(--loss); }
 
 /* Diagramm */
-.chart svg { width: 100%; height: 180px; display: block; }
+.chart svg { width: 100%; height: auto; max-height: 220px; display: block; }
 .chart .axis { stroke: var(--border); }
 .chart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; }
 .chart .zero { stroke: var(--muted); stroke-dasharray: 3 4; opacity: .6; }

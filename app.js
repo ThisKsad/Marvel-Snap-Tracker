@@ -91,10 +91,6 @@ function fillFilterOptions() {
   };
   setOpts($('#fMode'), modes, modeName, state.mode);
   setOpts($('#fDeck'), decks, d => d, state.deck);
-  $('#deckList').innerHTML = decks.map(d => `<option value="${esc(d)}">`).join('');
-  const archs = new Set(ARCHETYPE_NAMES);
-  state.matches.forEach(m => m.opp_archetype && archs.add(m.opp_archetype));
-  $('#archList').innerHTML = [...archs].map(a => `<option value="${esc(a)}">`).join('');
 }
 
 // sortierbare Tabelle: cols = [{key, label, num, fmt, sortVal}]
@@ -139,7 +135,7 @@ function cubeChart(list) {
   const x = i => P + (W - P - 8) * i / (pts.length - 1);
   const y = v => 10 + (H - 30) * (1 - (v - min) / span);
   const d = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Cube-Verlauf">
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cube-Verlauf">
     <line class="zero" x1="${P}" x2="${W - 8}" y1="${y(0)}" y2="${y(0)}"/>
     <path class="line" d="${d}"/>
     <text x="2" y="${y(max) + 4}">${signed(max)}</text>
@@ -307,6 +303,41 @@ function render() {
 }
 
 // ---------------------------------------------------------------- Formular
+const OTHER = '__other__';
+
+// Auswahlliste nach Häufigkeit: zuerst Einträge aus den bisherigen Spielen (mit Anzahl),
+// dann bekannte Einträge ohne Spiele, am Ende „Anderes …“ für freie Eingabe.
+function fillPicker(sel, counts, extra, otherLabel, emptyLabel) {
+  const used = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de'));
+  const rest = extra.filter(x => !counts.has(x)).sort((a, b) => a.localeCompare(b, 'de'));
+  let html = emptyLabel ? `<option value="">${emptyLabel}</option>` : '';
+  if (used.length) html += `<optgroup label="Bisher gespielt">${used.map(([v, n]) => `<option value="${esc(v)}">${esc(v)} (${n})</option>`).join('')}</optgroup>`;
+  if (rest.length) html += `<optgroup label="${used.length ? 'Weitere' : 'Auswahl'}">${rest.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</optgroup>`;
+  html += `<option value="${OTHER}">${otherLabel}</option>`;
+  sel.innerHTML = html;
+}
+
+function setPicker(sel, input, value) {
+  if (value && ![...sel.options].some(o => o.value === value)) {
+    sel.value = OTHER; input.hidden = false; input.value = value;
+  } else {
+    sel.value = value || sel.options[0].value; input.hidden = sel.value !== OTHER; input.value = '';
+  }
+}
+
+function pickerValue(sel, input) {
+  return sel.value === OTHER ? input.value.trim() : sel.value;
+}
+
+function fillFormPickers() {
+  const deckCounts = new Map();
+  state.matches.forEach(m => m.deck_name && deckCounts.set(m.deck_name, (deckCounts.get(m.deck_name) || 0) + 1));
+  fillPicker($('#selDeck'), deckCounts, MY_DECKS, 'Anderes Deck …', '');
+  const archCounts = new Map();
+  state.matches.forEach(m => { const a = m.opp_archetype || detectArchetype(m.opponent_cards); if (a) archCounts.set(a, (archCounts.get(a) || 0) + 1); });
+  fillPicker($('#selArch'), archCounts, ARCHETYPE_NAMES, 'Anderes Gegner-Deck …', 'Unbekannt');
+}
+
 let formResult = 'win', formCubes = 2;
 function setSeg(seg, v) { seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
 function toLocalInput(d) { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 16); }
@@ -318,11 +349,12 @@ function openForm(m) {
   formResult = m ? m.result : 'win';
   formCubes = m ? Math.abs(m.cubes) || 1 : 2;
   setSeg($('#resultSeg'), formResult); setSeg($('#cubeSeg'), formCubes);
-  $('#inDeck').value = m ? m.deck_name || '' : (state.deck || last?.deck_name || '');
+  fillFormPickers();
+  setPicker($('#selDeck'), $('#inDeck'), m ? m.deck_name || '' : (state.deck || last?.deck_name || ''));
   $('#inMode').value = m ? (m.mode || 'Ranked') : (last?.mode && [...$('#inMode').options].some(o => o.value === last.mode) ? last.mode : 'Ranked');
   if (m && m.mode && ![...$('#inMode').options].some(o => o.value === m.mode)) $('#inMode').add(new Option(modeName(m.mode), m.mode));
   if (m) $('#inMode').value = m.mode || 'Ranked';
-  $('#inArch').value = m ? (m.opp_archetype || detectArchetype(m.opponent_cards) || '') : '';
+  setPicker($('#selArch'), $('#inArch'), m ? (m.opp_archetype || detectArchetype(m.opponent_cards) || '') : '');
   $('#inOpp').value = m ? m.opponent_name || '' : '';
   $('#inRetreat').value = m ? m.retreated || '' : '';
   $('#inDate').value = toLocalInput(m ? m.played_at : new Date());
@@ -338,9 +370,9 @@ async function saveForm(ev) {
   const cubes = formResult === 'tie' ? 0 : (formResult === 'win' ? 1 : -1) * formCubes;
   const row = {
     result: formResult, cubes,
-    deck_name: $('#inDeck').value.trim() || null,
+    deck_name: pickerValue($('#selDeck'), $('#inDeck')) || null,
     mode: $('#inMode').value,
-    opp_archetype: $('#inArch').value.trim() || null,
+    opp_archetype: pickerValue($('#selArch'), $('#inArch')) || null,
     opponent_name: $('#inOpp').value.trim() || null,
     retreated: $('#inRetreat').value || null,
     played_at: new Date($('#inDate').value || Date.now()).toISOString(),
@@ -409,6 +441,9 @@ $('#view').addEventListener('click', e => {
 });
 
 $('#addBtn').addEventListener('click', () => openForm());
+for (const [s, i] of [['#selDeck', '#inDeck'], ['#selArch', '#inArch']]) {
+  $(s).addEventListener('change', () => { $(i).hidden = $(s).value !== OTHER; if (!$(i).hidden) $(i).focus(); });
+}
 $('#cancelBtn').addEventListener('click', () => $('#gameDialog').close());
 $('#deleteBtn').addEventListener('click', deleteGame);
 $('#gameForm').addEventListener('submit', saveForm);

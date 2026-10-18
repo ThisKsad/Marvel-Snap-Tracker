@@ -63,8 +63,8 @@
       </label>
       <div class="row2">
         <label class="field">Deck
-          <input id="inDeck" list="deckList" placeholder="z. B. Created Cards" autocomplete="off">
-          <datalist id="deckList"></datalist>
+          <select id="selDeck"></select>
+          <input id="inDeck" placeholder="Deckname eingeben" autocomplete="off" hidden>
         </label>
         <label class="field">Modus
           <select id="inMode">
@@ -78,8 +78,8 @@
       </div>
       <div class="row2">
         <label class="field">Gegner-Deck
-          <input id="inArch" list="archList" placeholder="z. B. Zombie" autocomplete="off">
-          <datalist id="archList"></datalist>
+          <select id="selArch"></select>
+          <input id="inArch" placeholder="Gegner-Deck eingeben" autocomplete="off" hidden>
         </label>
         <label class="field">Gegnername <input id="inOpp" placeholder="optional" autocomplete="off"></label>
       </div>

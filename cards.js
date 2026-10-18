@@ -70,3 +70,8 @@ function detectArchetype(cards) {
 }
 
 const LOCATION_NAME = id => cardName(id);
+
+// Deine Decks im Spiel (Stand 18.10.2026, ohne Event-Decks). Neue Decks erscheinen
+// automatisch in der Auswahl, sobald ein Spiel damit erfasst ist.
+const MY_DECKS = ['Destroy', 'Galactus', 'Ongoign Doom', 'Negative Gorr', 'Ramp', 'Bufftron', 'Created Cards',
+  'discard desttroy', 'Z-Killmonger', 'Boiiiing', 'Surfer', 'Zoo', 'High Evo', 'Arishem'];
