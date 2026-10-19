@@ -34,11 +34,14 @@ function Get-TrackerPin {
     if ($env:SNAPTRACKER_PIN) { return $env:SNAPTRACKER_PIN }   # nur zum Testen
     if (-not (Test-Path $PinFile)) { return $null }
     try {
-        $sec = Get-Content $PinFile -Raw | ConvertTo-SecureString
+        $sec = (Get-Content $PinFile -Raw).Trim() | ConvertTo-SecureString
         $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
         try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
-    } catch { return $null }
+    } catch {
+        Write-Log "PIN konnte nicht gelesen werden: $($_.Exception.Message)"
+        return $null
+    }
 }
 
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
@@ -88,6 +91,7 @@ function Format-Result($r) {
 function Invoke-SnapCheck {
     if ($script:PinProblem) { return $null }
     if (-not $script:Pin) {
+        if ($script:Status -notlike 'Kein PIN*') { Write-Log 'Kein PIN hinterlegt, es wird nichts gesendet' }
         $script:Status = 'Kein PIN hinterlegt. Bitte Installieren.bat erneut ausführen.'
         return $null
     }
