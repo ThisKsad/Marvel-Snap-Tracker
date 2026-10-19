@@ -11,6 +11,7 @@ const state = {
   archDetail: null,
   sort: {},
   editing: null,
+  chart: 'cubes',
 };
 
 // ---------------------------------------------------------------- Hilfen
@@ -200,23 +201,41 @@ function kpis(list) {
   </div>`;
 }
 
-function cubeChart(list) {
-  const games = [...list].sort((a, b) => new Date(a.played_at) - new Date(b.played_at));
-  if (games.length < 2) return '<p class="hint">Der Verlauf erscheint ab zwei Spielen.</p>';
-  let sum = 0; const pts = [0, ...games.map(m => (sum += m.cubes || 0))];
-  const W = 600, H = 180, P = 28;
-  const min = Math.min(0, ...pts), max = Math.max(0, ...pts), span = max - min || 1;
-  const x = i => P + (W - P - 8) * i / (pts.length - 1);
+// Liniendiagramm: pts = Werte in Spielreihenfolge, zero = Nulllinie zeichnen
+function lineChart(pts, { label, fmt = v => v, zero = false, first = 'Spiel 1', last = '' }) {
+  const W = 600, H = 180, P = 34;
+  let min = Math.min(...pts), max = Math.max(...pts);
+  if (zero) { min = Math.min(0, min); max = Math.max(0, max); }
+  if (min === max) { min -= 1; max += 1; }
+  const span = max - min;
+  const x = i => P + (W - P - 8) * i / Math.max(1, pts.length - 1);
   const y = v => 10 + (H - 30) * (1 - (v - min) / span);
   const d = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cube-Verlauf">
-    <line class="zero" x1="${P}" x2="${W - 8}" y1="${y(0)}" y2="${y(0)}"/>
+  const lastV = pts[pts.length - 1];
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">
+    ${zero ? `<line class="zero" x1="${P}" x2="${W - 8}" y1="${y(0)}" y2="${y(0)}"/>` : `<line class="zero" x1="${P}" x2="${W - 8}" y1="${y(min)}" y2="${y(min)}"/>`}
     <path class="line" d="${d}"/>
-    <text x="2" y="${y(max) + 4}">${signed(max)}</text>
-    ${min < 0 ? `<text x="2" y="${y(min) + 4}">${min}</text>` : ''}
-    <text x="${P}" y="${H - 4}">Spiel 1</text>
-    <text x="${W - 8}" y="${H - 4}" text-anchor="end">Spiel ${games.length}</text>
+    <circle class="dot" cx="${x(pts.length - 1)}" cy="${y(lastV)}" r="4"/>
+    <text x="2" y="${y(max) + 4}">${fmt(max)}</text>
+    <text x="2" y="${y(min) + 4}">${fmt(min)}</text>
+    <text x="${P}" y="${H - 4}">${first}</text>
+    <text x="${W - 8}" y="${H - 4}" text-anchor="end">${last}</text>
   </svg></div>`;
+}
+
+function trendChart(list) {
+  const games = [...list].sort((a, b) => new Date(a.played_at) - new Date(b.played_at));
+  if (state.chart === 'rank') {
+    const ranked = games.filter(m => m.my_rank != null);
+    if (ranked.length < 2) return '<p class="hint">Der Rang wird nur bei Spielen erfasst, die das PC-Programm aufzeichnet. Der Verlauf erscheint ab zwei solchen Spielen.</p>';
+    const pts = ranked.map(m => m.my_rank);
+    const diff = pts[pts.length - 1] - pts[0];
+    return `<p class="hint">Rang ${pts[0]} → <b>${pts[pts.length - 1]}</b> <span class="${cls(diff)}">(${signed(diff)})</span> · ${ranked.length} PC-Spiele</p>` +
+      lineChart(pts, { label: 'Rang-Verlauf', first: fmtDate(ranked[0].played_at), last: fmtDate(ranked[ranked.length - 1].played_at) });
+  }
+  if (games.length < 2) return '<p class="hint">Der Verlauf erscheint ab zwei Spielen.</p>';
+  let sum = 0; const pts = [0, ...games.map(m => (sum += m.cubes || 0))];
+  return lineChart(pts, { label: 'Cube-Verlauf', fmt: signed, zero: true, last: `Spiel ${games.length}` });
 }
 
 function gameRow(m) {
@@ -259,7 +278,11 @@ function viewOverview(list) {
     .sort((a, b) => b.n - a.n).slice(0, 5);
   const mini = rows => rows.length ? `<table><tbody>${rows.map(r => `<tr><td class="name">${esc(r.name)}</td><td class="num">${r.w}–${r.l}</td><td class="num">${wrCell(r.w, r.n)}</td><td class="num ${cls(r.cubes)}">${signed(r.cubes)}</td></tr>`).join('')}</tbody></table>` : '<p class="hint">Noch keine Spiele im Filter.</p>';
   return kpis(list) +
-    `<div class="panel"><h3>Cube-Verlauf</h3>${cubeChart(list)}</div>
+    `<div class="panel"><div class="panel-head"><h3>${state.chart === 'rank' ? 'Rang-Verlauf' : 'Cube-Verlauf'}</h3>
+       <div class="seg mini" role="group" aria-label="Verlauf wählen">
+         <button type="button" data-chart="cubes" class="${state.chart !== 'rank' ? 'on' : ''}">Cubes</button>
+         <button type="button" data-chart="rank" class="${state.chart === 'rank' ? 'on' : ''}">Rang</button>
+       </div></div>${trendChart(list)}</div>
      <div class="grid2">
        <div class="panel"><h3>Meistgespielte Decks</h3>${mini(decks)}</div>
        <div class="panel"><h3>Häufigste Gegner</h3>${mini(archs)}</div>
@@ -500,6 +523,8 @@ $('#view').addEventListener('click', e => {
     state.sort[id] = { key, dir: cur && cur.key === key ? -cur.dir : -1 };
     return render();
   }
+  const ch = e.target.closest('[data-chart]');
+  if (ch) { state.chart = ch.dataset.chart; try { localStorage.setItem('snap-chart', state.chart); } catch (_) {} return render(); }
   const edit = e.target.closest('[data-edit]');
   if (edit) return openForm(state.matches.find(m => m.id === edit.dataset.edit));
   const back = e.target.closest('[data-back]');
@@ -547,7 +572,7 @@ $('#pinForm').addEventListener('submit', async ev => {
   } catch (e) { $('#pinError').textContent = 'Keine Verbindung zur Datenbank: ' + e.message; }
 });
 
-try { const t = localStorage.getItem('snap-tab'); if (t) state.tab = t; } catch (_) {}
+try { const t = localStorage.getItem('snap-tab'); if (t) state.tab = t; state.chart = localStorage.getItem('snap-chart') || 'cubes'; } catch (_) {}
 load();
 setInterval(() => document.visibilityState === 'visible' && load(true), 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && load(true));

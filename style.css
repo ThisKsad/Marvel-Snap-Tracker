@@ -159,3 +159,9 @@ dialog h2 { margin: 0 0 12px; font-size: 24px; }
 body.locked { overflow: hidden; }
 .foot { text-align: center; padding: 18px 0 0; }
 .linkbtn { background: none; border: 0; color: var(--muted); font-size: 13px; text-decoration: underline; cursor: pointer; }
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head h3 { margin: 0; }
+.seg.mini { margin: 0; gap: 4px; }
+.seg.mini button { padding: 5px 12px; font-size: 13px; }
+.chart .dot { fill: var(--accent); }
