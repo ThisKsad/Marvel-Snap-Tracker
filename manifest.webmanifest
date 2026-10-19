@@ -1,0 +1,16 @@
+{
+  "name": "Snap Tracker",
+  "short_name": "Snap Tracker",
+  "description": "Marvel-Snap-Spiele, Siegraten pro Deck und Karte, Cube- und Rang-Verlauf",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14111f",
+  "theme_color": "#14111f",
+  "lang": "de",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
