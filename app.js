@@ -574,5 +574,6 @@ $('#pinForm').addEventListener('submit', async ev => {
 
 try { const t = localStorage.getItem('snap-tab'); if (t) state.tab = t; state.chart = localStorage.getItem('snap-chart') || 'cubes'; } catch (_) {}
 load();
+PcSync.init();
 setInterval(() => document.visibilityState === 'visible' && load(true), 60000);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && load(true));

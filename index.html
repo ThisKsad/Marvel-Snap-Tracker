@@ -30,6 +30,8 @@
     </div>
   </header>
 
+  <div class="syncbar" id="syncBar" hidden></div>
+
   <nav class="tabs" id="tabs">
     <button data-tab="overview" class="active">Übersicht</button>
     <button data-tab="games">Spiele</button>
@@ -155,9 +157,30 @@
     </form>
   </dialog>
 
+  <dialog id="syncDialog">
+    <form method="dialog" onsubmit="return false">
+      <h2>PC-Erfassung einrichten</h2>
+      <p class="hint">Der Tracker liest nach jedem Spiel die Spieldatei von Marvel Snap und speichert das Ergebnis. Dafür musst du nichts installieren. Er liest nur diese eine Datei, solange der Tracker im Browser offen ist (Chrome oder Edge).</p>
+      <ol class="steps">
+        <li>Pfad kopieren: <button type="button" class="btn small" id="syncCopy">Kopieren</button><code id="syncPath"></code></li>
+        <li>Auf <b>Datei auswählen</b> klicken, den Pfad unten ins Feld <b>Dateiname</b> einfügen und <b>Öffnen</b> klicken. Klappt das nicht, ersetze <code style="display:inline;padding:1px 4px">%USERPROFILE%</code> durch <code style="display:inline;padding:1px 4px">C:\Users\DeinBenutzername</code>.</li>
+        <li>Fragt der Browser nach, <b>„Bei jedem Besuch zulassen“</b> wählen, falls angeboten.</li>
+      </ol>
+      <p class="hint">Tipp: Lass den Tracker beim Spielen in einem Tab offen oder installiere ihn über das Browser-Menü als App.</p>
+      <p class="form-error" id="syncError"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn danger" id="syncForget" hidden>Ausschalten</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="syncClose">Schließen</button>
+        <button type="button" class="btn primary" id="syncChoose">Datei auswählen</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
 
   <script src="cards.js?v=202610191139"></script>
+  <script src="pcsync.js?v=202610231850"></script>
   <script src="app.js?v=202610191139"></script>
 </body>
 </html>

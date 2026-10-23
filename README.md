@@ -15,7 +15,16 @@ lassen sich keine Spiele lesen, eintragen oder löschen. Nach 10 falschen Versuc
 Beim ersten Öffnen der Website legst du den PIN fest. Ändern kannst du ihn unten auf der Seite über „PIN ändern“
 (danach `Installieren.bat` erneut ausführen, damit das PC-Programm den neuen PIN kennt).
 
-## PC-Programm installieren
+## PC-Erfassung im Browser (empfohlen)
+
+Ohne Installation: Den Tracker in Chrome oder Edge öffnen, oben bei „PC-Erfassung“ auf **Einrichten** klicken und die Datei
+`%USERPROFILE%\AppData\LocalLow\Second Dinner\SNAP\Standalone\States\nvprod\GameState.json` auswählen.
+Solange der Tracker offen ist (Tab oder als App installiert), werden Spiele auf diesem PC automatisch gespeichert.
+Es läuft kein Programm im Hintergrund, daher schlagen auch Virenscanner nicht an.
+
+## PC-Programm installieren (Alternative)
+
+Manche Virenscanner (z. B. Bitdefender, „Erweiterte Gefahrenabwehr“) blockieren das Hintergrund-Skript. Dann die Browser-Variante nutzen.
 
 0. Zuerst auf der Website den PIN festlegen.
 1. Den Ordner `pc` herunterladen (oder das ganze Repo als ZIP: grüner Button „Code“ → „Download ZIP“) und entpacken.
